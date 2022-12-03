@@ -2158,6 +2158,7 @@ handle_eval_breaker:
                 PyObject *container = SECOND();
                 next_instr--;
                 if (_Py_Specialize_BinarySubscr(container, sub, next_instr) < 0) {
+                    next_instr++;
                     goto error;
                 }
                 DISPATCH_SAME_OPARG();
@@ -2323,6 +2324,7 @@ handle_eval_breaker:
                 PyObject *container = SECOND();
                 next_instr--;
                 if (_Py_Specialize_StoreSubscr(container, sub, next_instr) < 0) {
+                    next_instr++;
                     goto error;
                 }
                 DISPATCH_SAME_OPARG();
@@ -3056,6 +3058,7 @@ handle_eval_breaker:
                 PyObject *name = GETITEM(names, oparg>>1);
                 next_instr--;
                 if (_Py_Specialize_LoadGlobal(GLOBALS(), BUILTINS(), next_instr, name) < 0) {
+                    next_instr++;
                     goto error;
                 }
                 DISPATCH_SAME_OPARG();
@@ -3481,6 +3484,7 @@ handle_eval_breaker:
                 PyObject *name = GETITEM(names, oparg);
                 next_instr--;
                 if (_Py_Specialize_LoadAttr(owner, next_instr, name) < 0) {
+                    next_instr++;
                     goto error;
                 }
                 DISPATCH_SAME_OPARG();
@@ -3590,6 +3594,7 @@ handle_eval_breaker:
                 PyObject *name = GETITEM(names, oparg);
                 next_instr--;
                 if (_Py_Specialize_StoreAttr(owner, next_instr, name) < 0) {
+                    next_instr++;
                     goto error;
                 }
                 DISPATCH_SAME_OPARG();
@@ -4527,6 +4532,7 @@ handle_eval_breaker:
                 PyObject *name = GETITEM(names, oparg);
                 next_instr--;
                 if (_Py_Specialize_LoadMethod(owner, next_instr, name) < 0) {
+                    next_instr++;
                     goto error;
                 }
                 DISPATCH_SAME_OPARG();
@@ -4801,6 +4807,7 @@ handle_eval_breaker:
                 int err = _Py_Specialize_Precall(callable, next_instr, nargs,
                                                  call_shape.kwnames, oparg);
                 if (err < 0) {
+                    next_instr++;
                     goto error;
                 }
                 DISPATCH_SAME_OPARG();
@@ -4822,6 +4829,7 @@ handle_eval_breaker:
                 int err = _Py_Specialize_Call(callable, next_instr, nargs,
                                               call_shape.kwnames);
                 if (err < 0) {
+                    next_instr++;
                     goto error;
                 }
                 DISPATCH_SAME_OPARG();
@@ -5017,7 +5025,7 @@ handle_eval_breaker:
                 goto error;
             }
             PyObject *arg = TOP();
-            PyObject *res = cfunc(PyCFunction_GET_SELF(callable), arg);
+            PyObject *res = _PyCFunction_TrampolineCall(cfunc, PyCFunction_GET_SELF(callable), arg);
             _Py_LeaveRecursiveCallTstate(tstate);
             assert((res != NULL) ^ (_PyErr_Occurred(tstate) != NULL));
 
@@ -5184,9 +5192,6 @@ handle_eval_breaker:
             PyObject *list = SECOND();
             DEOPT_IF(!PyList_Check(list), PRECALL);
             STAT_INC(PRECALL, hit);
-            // PRECALL + CALL + POP_TOP
-            JUMPBY(INLINE_CACHE_ENTRIES_PRECALL + 1 + INLINE_CACHE_ENTRIES_CALL + 1);
-            assert(_Py_OPCODE(next_instr[-1]) == POP_TOP);
             PyObject *arg = POP();
             if (_PyList_AppendTakeRef((PyListObject *)list, arg) < 0) {
                 goto error;
@@ -5194,6 +5199,9 @@ handle_eval_breaker:
             STACK_SHRINK(2);
             Py_DECREF(list);
             Py_DECREF(callable);
+            // PRECALL + CALL + POP_TOP
+            JUMPBY(INLINE_CACHE_ENTRIES_PRECALL + 1 + INLINE_CACHE_ENTRIES_CALL + 1);
+            assert(_Py_OPCODE(next_instr[-1]) == POP_TOP);
             DISPATCH();
         }
 
@@ -5218,7 +5226,7 @@ handle_eval_breaker:
             if (_Py_EnterRecursiveCallTstate(tstate, " while calling a Python object")) {
                 goto error;
             }
-            PyObject *res = cfunc(self, arg);
+            PyObject *res = _PyCFunction_TrampolineCall(cfunc, self, arg);
             _Py_LeaveRecursiveCallTstate(tstate);
             assert((res != NULL) ^ (_PyErr_Occurred(tstate) != NULL));
             Py_DECREF(self);
@@ -5290,7 +5298,7 @@ handle_eval_breaker:
             if (_Py_EnterRecursiveCallTstate(tstate, " while calling a Python object")) {
                 goto error;
             }
-            PyObject *res = cfunc(self, NULL);
+            PyObject *res = _PyCFunction_TrampolineCall(cfunc, self, NULL);
             _Py_LeaveRecursiveCallTstate(tstate);
             assert((res != NULL) ^ (_PyErr_Occurred(tstate) != NULL));
             Py_DECREF(self);

@@ -16,6 +16,9 @@
 #ifdef MS_WINDOWS
 #  include <windows.h>
 #  include <pathcch.h>
+#  include <lmcons.h>             // UNLEN
+#  include "osdefs.h"             // SEP
+#  define HAVE_SYMLINK
 #endif
 
 #ifdef __VXWORKS__
@@ -152,6 +155,18 @@
 
 #  ifdef HAVE_SYMLINKAT
 #    define HAVE_SYMLINKAT_RUNTIME (symlinkat != NULL)
+#  endif
+
+#  ifdef HAVE_UTIMENSAT
+#    define HAVE_UTIMENSAT_RUNTIME (utimensat != NULL)
+#  endif
+
+#  ifdef HAVE_FUTIMENS
+#    define HAVE_FUTIMENS_RUNTIME (futimens != NULL)
+#  endif
+
+#  ifdef HAVE_PWRITEV
+#    define HAVE_PWRITEV_RUNTIME (pwritev != NULL)
 #  endif
 
 #endif
@@ -414,18 +429,7 @@ extern char        *ctermid_r(char *);
 #  ifdef HAVE_PROCESS_H
 #    include <process.h>
 #  endif
-#  ifndef IO_REPARSE_TAG_SYMLINK
-#    define IO_REPARSE_TAG_SYMLINK (0xA000000CL)
-#  endif
-#  ifndef IO_REPARSE_TAG_MOUNT_POINT
-#    define IO_REPARSE_TAG_MOUNT_POINT (0xA0000003L)
-#  endif
-#  include "osdefs.h"             // SEP
 #  include <malloc.h>
-#  include <windows.h>
-#  include <shellapi.h>           // ShellExecute()
-#  include <lmcons.h>             // UNLEN
-#  define HAVE_SYMLINK
 #endif /* _MSC_VER */
 
 #ifndef MAXPATHLEN
@@ -9817,7 +9821,7 @@ os_preadv_impl(PyObject *module, int fd, PyObject *buffers, Py_off_t offset,
     } while (n < 0 && errno == EINTR && !(async_err = PyErr_CheckSignals()));
 #else
     do {
-#ifdef __APPLE__
+#if defined(__APPLE__) && defined(__clang__)
 /* This entire function will be removed from the module dict when the API
  * is not available.
  */
@@ -9832,7 +9836,7 @@ os_preadv_impl(PyObject *module, int fd, PyObject *buffers, Py_off_t offset,
         Py_END_ALLOW_THREADS
     } while (n < 0 && errno == EINTR && !(async_err = PyErr_CheckSignals()));
 
-#ifdef __APPLE__
+#if defined(__APPLE__) && defined(__clang__)
 #pragma clang diagnostic pop
 #endif
 
@@ -10459,7 +10463,7 @@ os_pwritev_impl(PyObject *module, int fd, PyObject *buffers, Py_off_t offset,
     } while (result < 0 && errno == EINTR && !(async_err = PyErr_CheckSignals()));
 #else
 
-#ifdef __APPLE__
+#if defined(__APPLE__) && defined(__clang__)
 /* This entire function will be removed from the module dict when the API
  * is not available.
  */
@@ -10475,7 +10479,7 @@ os_pwritev_impl(PyObject *module, int fd, PyObject *buffers, Py_off_t offset,
         Py_END_ALLOW_THREADS
     } while (result < 0 && errno == EINTR && !(async_err = PyErr_CheckSignals()));
 
-#ifdef __APPLE__
+#if defined(__APPLE__) && defined(__clang__)
 #pragma clang diagnostic pop
 #endif
 
